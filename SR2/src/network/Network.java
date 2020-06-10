@@ -2,9 +2,9 @@
  * 
  */
 package network;
-import java.util.concurrent.*;
 import java.time.LocalTime;
 import java.util.Vector;
+import java.util.concurrent.ThreadLocalRandom;
 
 
 /**
@@ -18,6 +18,7 @@ public class Network {
 	public Network() {
 		NodeList = new Vector<Node>();
 		NodeListSize = 0;
+		setupNodes();
 	}
 
 	public int getNodeListSize() {
@@ -108,66 +109,82 @@ public class Network {
 	 * 
 	 * @return overall number of bytes sent by all nodes in node list
 	 */
-	public byte getOverallBytesSent() {
-		byte b = 0;
+	public int getOverallBytesSent() {
+		int j = 0;
 		for(int i = 0; i < NodeList.size(); i++) {
-			b += NodeList.get(i).getBytesSent();
+			j += NodeList.get(i).getBytesSent();
 		}
-		return b;
+		return j;
 	}
 
 	/**
 	 * 
 	 * @return overall number of bytes Forwarded by all nodes in node list
 	 */
-	public byte getOverallBytesForwarded() {
-		byte b = 0;
+	public int getOverallBytesForwarded() {
+		int j = 0;
 		for(int i = 0; i < NodeList.size(); i++) {
-			b += NodeList.get(i).getBytesForwarded();
+			j += NodeList.get(i).getBytesForwarded();
 		}
-		return b;
+		return j;
 	}
 
 	/**
 	 * 
 	 * @return overall number of bytes Received by all nodes in node list
 	 */
-	public byte getOverallBytesReceived() {
-		byte b = 0;
+	public int getOverallBytesReceived() {
+		int j = 0;
 		for(int i = 0; i < NodeList.size(); i++) {
-			b += NodeList.get(i).getBytesReceived();
+			j += NodeList.get(i).getBytesReceived();
 		}
-		return b;
+		return j;
 	}
 
 	/**
 	 * 
 	 * @return overall number of bytes Dropped by all nodes in node list
 	 */
-	public byte getOverallBytesDropped() {
-		byte b = 0;
+	public int getOverallBytesDropped() {
+		int j = 0;
 		for(int i = 0; i < NodeList.size(); i++) {
-			b += NodeList.get(i).getBytesDropped();
+			j += NodeList.get(i).getBytesDropped();
 		}
-		return b;
+		return j;
+	}
+
+	public int getOverallPacketsRequestingResponse() {
+		int j = 0;
+		for(int i = 0; i < NodeList.size(); i++) {
+			j += NodeList.get(i).getResponsesRequested();
+		}
+		return j;
+	}
+
+	public int getOverallPacketsReceivingResponse() {
+		int j = 0;
+		for(int i = 0; i < NodeList.size(); i++) {
+			j += NodeList.get(i).getResponsesReceived();
+		}
+		return j;
 	}
 
 	/**
 	 * prints out all 
 	 */
 	public void printAll() {
+		System.out.println("-----------------------------------------");
 		System.out.println("Number of packets sent by all nodes: " + getOverallSent());
 		System.out.println("Number of bytes sent by all nodes: " + getOverallBytesSent());
-		System.out.println("Number of packets Forwarded by all nodes: " + getOverallForwarded());
-		System.out.println("Number of bytes Forwarded by all nodes: " + getOverallBytesForwarded());
-		System.out.println("Number of packets Received by all nodes: " + getOverallReceived());
-		System.out.println("Number of bytes Received by all nodes: " + getOverallBytesReceived());
-		System.out.println("Number of packets Dropped by all nodes: " + getOverallDropped());
-		System.out.println("Number of bytes Dropped by all nodes: " + getOverallBytesDropped());
-	}
-
-	public void queueNodeSend(Node n, Node d, Packet p) {
-
+		System.out.println("Number of packets forwarded by all nodes: " + getOverallForwarded());
+		System.out.println("Number of bytes forwarded by all nodes: " + getOverallBytesForwarded());
+		System.out.println("Number of packets received by all nodes: " + getOverallReceived());
+		System.out.println("Number of bytes received by all nodes: " + getOverallBytesReceived());
+		System.out.println("Number of packets dropped by all nodes: " + getOverallDropped());
+		System.out.println("Number of bytes dropped by all nodes: " + getOverallBytesDropped());
+		System.out.println("Number of packets requesting a response sent by all nodes: " + getOverallPacketsRequestingResponse());
+		System.out.println("Number of packets received by all nodes in response to a request: " + getOverallPacketsReceivingResponse());
+		System.out.println("-----------------------------------------");
 	}
 
 	/**
@@ -217,16 +234,6 @@ public class Network {
 		return Math.sqrt(Math.pow(a, 2) + Math.pow(b, 2)); //a^2 + b^2 = c^2 -> c = sqrt(a^2 + b^2);
 	}
 
-	/*
-	public void startAllThreads() {
-		for(int i = 0; i < NodeListSize; i++) {
-			NodeList.get(i).start();
-			//NodeList.get(i).queueSend(NodeList, NodeList.get(i), new Packet());
-			//System.out.println(i);
-		}
-
-	}*/
-
 	/**
 	 * node receives a packet, increments packetsReceived, returns packet
 	 * 
@@ -235,153 +242,22 @@ public class Network {
 	 * @return packet
 	 */
 	public boolean receivePacket(Node d, Packet p) {
-		//System.out.println(LocalTime.now() + " | packet received by node " + d.getUid());
 		d.incrementReceived();
-		d.increaseBytesReceived(p.getSize());
-		//p.addPath(" -> " + d.getUid() + ": received");
+		d.increaseBytesReceived(p.getMsg().getBytes());
 		return true;
-	}
-
-	/**
-	 * forwards the packet to the next hop
-	 * 
-	 * @param n current node
-	 * @param d destination node
-	 * @param p packet
-	 * @return
-	 */
-	public void forwardPacket(Node n, Node d, Packet p) {
-		//System.out.println("forward1");
-		//p.addPath(String.valueOf(" -> " + n.getUid()));
-		Node nextHop = determineNextHop(n, d); //get next hop
-		if(nextHop == n) { //if next hop does not change, fails.
-			//System.out.println("forward2");
-			queueDrop(n);
-			n.incrementDropped();
-			n.increaseBytesDropped(p.getSize());
-			//p.addPath(": dropped");
-		} else if (nextHop == d) { //if next hop last hop, target receive
-			//System.out.println("forward3");
-			queueReceive(nextHop, p);
-			n.incrementForwarded();
-			n.increaseBytesForwarded(p.getSize());
-			p.incrementForwarded();
-			receivePacket(d, p);
-		} else { //else forward
-			//System.out.println("forward4");
-			queueForward(nextHop, d, p);
-			n.incrementForwarded();
-			n.increaseBytesForwarded(p.getSize());
-			p.incrementForwarded();
-			forwardPacket(nextHop, d, p);
-		}
-	}
-
-	/**
-	 * creates and sends a new packet to a specified destination
-	 * 
-	 * @param d destination node
-	 * @param size size of packet to be sent
-	 * @param msg content of packet to be sent
-	 * @return
-	 */
-	public void sendPacket(Node n, Node d, Packet p) {
-		//System.out.println("send0");
-		//p.addPath(String.valueOf(n.getUid()));
-		Node nextHop = determineNextHop(n, d);
-		//System.out.println("distance between 3 and 7 " + determineDistance(NodeList.get(3),NodeList.get(7)));
-		//System.out.println("next hop: " + nextHop.getUid());
-
-		if(nextHop == n) { //if next hop does not change, fails.
-			queueDrop(n);
-			//System.out.println("send1");
-			n.incrementDropped();
-			n.increaseBytesDropped(p.getSize());
-		} else if (nextHop == d) { //if next hop last hop, target receive
-			queueSend(n, d, p);
-			//System.out.println("send 2");
-			n.incrementSent();
-			n.increaseBytesSent(p.getSize());
-			queueReceive(d, p);
-			//System.out.println("send22");
-		} else { //else forward
-			queueSend(n, d, p);
-			n.setIsSending(true);
-			//System.out.println();
-			//System.out.println("send 3");
-			n.incrementSent();
-			n.increaseBytesSent(p.getSize());
-			//System.out.println("next hop " + nextHop.getUid() + " queue size: " + nextHop.getQueue().size());
-			queueForward(nextHop, d, p);
-			forwardPacket(nextHop, d, p);
-			//System.out.println("next hop " + nextHop.getUid() + " queue size: " + nextHop.getQueue().size());
-		}
-		//getQueue().remove();
-		//System.out.println("is it empty?");
-	}
-
-	/**
-	 * sends a packet with byte=1, msg="a" to destination
-	 * 
-	 * @param d destination node
-	 * @return
-	 */
-	public void sendDummyPacket(Node n, Node d) {
-		Packet p = new Packet(this, n, d);
-		//p.addPath(String.valueOf(n.getUid()));
-		Node nextHop = determineNextHop(n, d);
-		if(nextHop == n) { //if next hop does not change, fails.
-			n.incrementDropped();
-			n.increaseBytesDropped(p.getSize());
-			queueDrop(n);
-		} else if (nextHop == d) { //if next hop last hop, target receive
-			n.incrementSent();
-			n.increaseBytesSent(p.getSize());
-			queueReceive(d, p);
-		} else { //else send
-			n.incrementSent();
-			n.increaseBytesSent(p.getSize());
-			queueForward(nextHop, d, p);
-		}
-	}
-
-	public int queueSend(Node n, Node d, Packet p) {
-		//System.out.println(LocalTime.now() + " thread " + n.getId() + " on node " + n.getUid() + " queue send");
-		n.getQueue().add(new MethodInfo(0, n, d, p, NodeList));
-		//canAct.signal();
-		return 0;
-	}
-
-	public int queueForward(Node n, Node d, Packet p) {
-		n.getQueue().add(new MethodInfo(1, n, d, p, NodeList));
-		//System.out.println(LocalTime.now() + " thread " + n.getId() + " on node " + n.getUid() + " queue forward");
-		return 1;
-	}
-
-	public int queueReceive(Node d, Packet p) {
-		//System.out.println(LocalTime.now()+ " thread " + d.getId() + " on node " + d.getUid() + " queue receive 1");
-		d.getQueue().add(new MethodInfo(2, null, d, p, null));
-		//System.out.println("thread " + d.getId() + " on node " + d.getUid() + " queue receive 2. queue size " + d.getQueue().size());
-		//canAct.signal();
-		return 2;
-	}
-
-	public int queueDrop(Node n) {
-		//System.out.println("thread " + n.getId() + " on node " + n.getUid() + " queue drop");
-		n.getQueue().add(new MethodInfo(3, n, null, null, null));
-		//canAct.signal();
-		return 3;
 	}
 
 	public Vector<Node> calculatePath(Node n, Node d) {
 		Vector<Node> v = new Vector<Node>();
 		Node i = n;
+		v.add(n);
 		while(this.determineNextHop(i, d) != i) {
-			v.add(i);
 			i = determineNextHop(i, d);
-		}
-		if(i == d) {
 			v.add(i);
+		}
+
+		if(i != d) { // could not reach destination
+			v.add(d);
 		}
 		return v;
 	}
@@ -397,5 +273,72 @@ public class Network {
 				// caught!
 			}
 		}
+	}
+
+	public void setupNodes() {
+		addNode(5, 0, 0); // 0th node
+		addNode(5, 3, 4); // 1st node
+		addNode(5, 4, 3); // 2nd node
+		addNode(5, -3, -4); // 3rd node
+		addNode(5, -4, -3); // 4th node
+		addNode(5, 7, 7); // 5th node
+		addNode(5, -7, -7); // 6th node
+		addNode(5, 2, 2); // 7th node
+		addNode(5, -2, -2); // 8th node
+		addNode(5, 5, 0); // 9th node
+		addNode(5, 0, 5); // 10th node
+		addNode(5, -5, 0); // 11th node
+		addNode(5, 0, -5); // 12th node
+		addNode(5, -3, 4); // 13th node
+		addNode(5, -4, 3); // 14th node
+		addNode(5, 3, -4); // 15th node
+		addNode(5, 4, -3); // 16th node
+		addNode(5, -7, 7); // 17th node
+		addNode(5, 7, -7); // 18th node
+		addNode(5, -2, 2); // 19th node
+		addNode(5, 2, -2); // 20th node
+		addNode(5, 100, 100); // 21st node. Outside the range of every other node
+	}
+
+	public void send(int n, int d, String msg, boolean r) {
+		Packet p1 = new Packet(calculatePath(getNode(n), getNode(d)), msg, r);
+		MethodInfo m1 = new MethodInfo(0, getNode(n), p1);
+		getNode(n).getQueue().add(m1);
+	}
+
+	public void test() {
+		String[] msg = {"hello", "!@#$", "greetings!", "a", "Good morning!"};
+		int n, d, m, r;
+		long end = System.currentTimeMillis() + 1500;
+		while(System.currentTimeMillis() < end) {
+			n = ThreadLocalRandom.current().nextInt(0, 22);
+			d = ThreadLocalRandom.current().nextInt(0, 22);
+			m = ThreadLocalRandom.current().nextInt(0, 5);
+			r = ThreadLocalRandom.current().nextInt(0, 2);
+			while(n == d) {
+				d = ThreadLocalRandom.current().nextInt(0, 21);
+			}
+			if(r == 0) {
+				send(n, d, msg[m], false);
+			} else {
+				send(n, d, msg[m], true);
+			}
+
+			try {
+				Thread.sleep(5);
+			} catch (InterruptedException e) {
+				// caught!
+				e.printStackTrace();
+			}
+		}
+		try {
+			Thread.sleep(5000);
+		} catch (InterruptedException e) {
+			// caught!
+			e.printStackTrace();
+		}
+
+		printAll();
+		System.out.println("Node 0 received messages: " + getNode(0).getReceivedMessages());
 	}
 }

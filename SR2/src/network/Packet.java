@@ -2,57 +2,38 @@ package network;
 
 import java.time.LocalTime;
 import java.util.Vector;
-import java.util.concurrent.locks.Condition;
-import java.util.concurrent.locks.Lock;
-import java.util.concurrent.locks.ReentrantLock;
 
-public class Packet extends Thread{
-	public byte m_size; //size of packet in bytes
+public class Packet{
 	public String m_msg; //content of packet
 	public Vector<Node> m_path; //path taken by packet
-	public int m_forwarded; //number of nodes packet has touched
-	public boolean m_b;
-	final Lock lock = new ReentrantLock();
-	final Condition inUse = lock.newCondition();
+	public Node m_currentNode;
+	public boolean m_requireResponse;
 
 	/**
-	 * dummy packet
+	 * packet with no message
 	 * 
-	 * @param size size of the packet in bytes
-	 * @param msg content of the packet
-	 * @param m_path is path taken so far. In uid
+	 * @param path route to be taken by this packet
+	 * @param requireResponse boolean value of whether this packet requires a response or not
 	 */
-	Packet(Network network, Node n, Node d) {
-		m_size = 1;
+	Packet(Vector<Node> path, boolean requireResponse) {
 		m_msg = "a";
-		m_forwarded = 0;
-		m_path = network.calculatePath(n, d);
-		m_b = true;
-		/*for(int i = 0; i < m_path.size(); i++) {
-			System.out.println(i + " " + m_path.get(i).getUid());
-		}*/
+		m_path = path;
+		m_currentNode = path.get(0);
+		m_requireResponse = requireResponse;
 	}
 
 	/**
+	 * packet with a message
 	 * 
-	 * @param size size of the packet in bytes
-	 * @param msg content of the packet
-	 * @param m_path is path taken so far. In uid
+	 * @param path route to be taken by this packet
+	 * @param msg message contained by this packet
+	 * @param requireResponse boolean value of whether this packet requires a response or not
 	 */
-	Packet(Network network, Node n, Node d, byte size, String msg) {
-		m_size = size;
+	Packet(Vector<Node> path, String msg, boolean requireResponse) {
 		m_msg = msg;
-		m_forwarded = 0;
-		m_path = network.calculatePath(n, d);
-		m_b = true;
-	}
-
-	/**
-	 * 
-	 * @return size of packet
-	 */
-	public byte getSize() {
-		return m_size;
+		m_path = path;
+		m_currentNode = path.get(0);
+		m_requireResponse = requireResponse;
 	}
 
 	/**
@@ -72,105 +53,99 @@ public class Packet extends Thread{
 	}
 
 	/**
+	 * reverses the path of this packet for the purpose of responding
+	 * @return
+	 */
+	public Vector<Node> flipPath() {
+		Vector<Node> newPath = new Vector<Node>();
+		for(int i = getPath().size() - 1; i >= 0; i--) {
+			newPath.add(getPath().get(i));
+		}
+		return newPath;
+	}
+
+	/**
+	 * returns the current node this packet is at
+	 * @return
+	 */
+	public Node getCurrentNode() {
+		return m_currentNode;
+	}
+
+	/**
+	 * sets m_currentNode to n. returns n
 	 * 
-	 * @param newVal new step taken by packet
-	 * @return updated path taken by packet
+	 * @param n node
+	 * @return
 	 */
-	public Node addPath(Node newVal) {
-		m_path.add(newVal);
-		return newVal;
+	public Node setCurrentNode(Node n) {
+		m_currentNode = n;
+		return m_currentNode;
 	}
 
 	/**
-	 * returns number of times a packet has been forwarded
+	 * returns the next node in the path. If dropped, then returns current node
+	 * 
 	 * @return
 	 */
-	public int getForwarded() {
-		return m_forwarded;
+	public Node getNextNode() {
+		Node n;
+		if(getPath().indexOf(getCurrentNode()) + 1 != getPath().size()) {
+			n = getPath().get(getPath().indexOf(getCurrentNode()) + 1);
+		} else {
+			n = getCurrentNode();
+		}
+		return n;
 	}
 
 	/**
-	 * increments and returns the number of times a packet has been forwarded
+	 * returns the boolean value determining whether this packet is requesting a response upon delivery
+	 * 
 	 * @return
 	 */
-	public int incrementForwarded() {
-		return m_forwarded++;
+	public boolean getRequireResponse() {
+		return m_requireResponse;
 	}
 
-	public boolean getB() {
-		return m_b;
-	}
-
-	public boolean setB(boolean b) {
-		m_b = b;
-		return m_b;
-	}
-
-	public void threadAction() {
-		try {
-			System.out.println(LocalTime.now() + " | Thread action from packet " + getMsg() + "!");
-			Thread.sleep(100 * getSize());
-		} catch (InterruptedException e) {
-			// caught!
-		}
-	}
-
-	public void signalCondition() {
-		inUse.signal();
-	}
-
-	public void promptNode(Node n) throws InterruptedException {
-		System.out.println(LocalTime.now() + " | Packet " + getMsg() + " is prompting node " + n.getUid());
-		while(n.getActionCount() != 0) {
-
-		}
-		//n.signalCondition();
-		n.incrementActionCount();
-		n.setP(this);
-		System.out.println(LocalTime.now() + " | Packet " + getMsg() + " has prompted node " + n.getUid());
-	}
-
-	public void action() throws InterruptedException {
-		//lock.lock();
-		for(int i = 0; i < m_path.size(); i++) {
-			//m_path.get(i).signalCondition();
-			try {
-				System.out.println(LocalTime.now() + " | Packet " + getMsg() + " waiting for action");
-				promptNode(m_path.get(i));
-				while(m_b) {
-
-					Thread.sleep(100);
-
-
-					//inUse.await();
-				}
-			} finally {
-				setB(true);
-				System.out.println(LocalTime.now() + " | Packet " + getMsg() + " acting");
-				threadAction();
-				//lock.unlock();
-			}
-
-		}
-		setB(false);
-	}
-
-	public void run() {
-		System.out.println(LocalTime.now() + " | Packet \" + getMsg() + \" started");
-		while(getB()) {
-			try {
-				System.out.println(LocalTime.now() + " | Packet " + getMsg() + " preparing for action");
-				action();
-			} catch (InterruptedException e) {
-				// caught!
-			}
-		}
-		String s = new String("");
+	/**
+	 * returns the path of the packet
+	 * 
+	 * @return 
+	 */
+	public String printPath() {
+		String s = new String(LocalTime.now() + " |");
 		for(int i = 0; i < m_path.size(); i++) {
 			s = s + (" " + m_path.get(i).getUid() + " ");
 		}
-		
-		System.out.println(LocalTime.now() + " | Packet " + getMsg() + " finished. Path taken: " + s);
+		return s;
+	}
+
+	/**
+	 * does this when origin node sends this packet
+	 */
+	public void send() {
+		setCurrentNode(getNextNode());
+	}
+
+	/**
+	 * does this when intermediary nodes forwards this packet
+	 */
+	public void forward() {
+		setCurrentNode(getNextNode());
+	}
+
+	/**
+	 * does this when destination node receives this packet
+	 */
+	public void receive() {
+		System.out.println(printPath() + " received!");
+	}
+
+	/**
+	 * does this when destination node drops this packet
+	 */
+	public void drop() {
+		System.out.println(printPath() + " dropped!");
 	}
 
 }

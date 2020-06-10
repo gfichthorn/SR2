@@ -1,9 +1,7 @@
 package network;
 
 //import java.util.Vector;
-import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.Lock;
-import java.util.concurrent.locks.ReentrantLock;
 import java.time.*;
 import java.util.LinkedList; 
 import java.util.Queue;
@@ -17,25 +15,18 @@ public class Node extends Thread{
 	public int m_forwarded; //number of packets received then forwarded by this node
 	public int m_received; //number of packets received with this node as the destination
 	public int m_dropped; // number of packet dropped by this node
-	public byte m_bytesSent; // number of bytes sent by this node
-	public byte m_bytesForwarded; // number of bytes forwarded by this node
-	public byte m_bytesReceived; // number of bytes received by this node
-	public byte m_bytesDropped; // number of bytes dropped by this node
-	public boolean m_on; //is the node on or off
+	public int m_bytesSent; // number of bytes sent by this node
+	public int m_bytesForwarded; // number of bytes forwarded by this node
+	public int m_bytesReceived; // number of bytes received by this node
+	public int m_bytesDropped; // number of bytes dropped by this node
+	public int m_responsesRequested;
+	public int m_responsesReceived;
 	public double m_x; //x-coordinate
 	public double m_y; //y-coordinate
 	public Queue<MethodInfo> NodeThreadQueue = new LinkedList<MethodInfo>();
-	public boolean m_isSending;
-	public boolean m_isForwarding;
-	public boolean m_isReceiving;
-	public int m_actionCount;
-	final Lock lock = new ReentrantLock();
-	final Condition inUse = lock.newCondition();
-	public Packet m_p;
 	public Vector<String> m_receivedMessages = new Vector<String>();
-	//final Lock lock = new ReentrantLock();
-	//final Condition canAct  = lock.newCondition();
-	//final Condition canReceive = lock.newCondition();
+	ExecutorService PacketThreadPool = Executors.newFixedThreadPool(5);
+	public Lock lock;
 
 
 	/**
@@ -64,15 +55,10 @@ public class Node extends Thread{
 		m_bytesForwarded = 0;
 		m_bytesReceived = 0;
 		m_bytesDropped = 0;
-		m_on = true;
 		m_x = x;
 		m_y = y;
-
-		m_isSending = false;
-		m_isForwarding = false;
-		m_isReceiving = false;
-
-		//start();
+		m_responsesRequested = 0;
+		m_responsesReceived = 0;
 	}
 
 	/**
@@ -159,7 +145,7 @@ public class Node extends Thread{
 	 * 
 	 * @return number of bytes sent by this node
 	 */
-	public byte getBytesSent() {
+	public int getBytesSent() {
 		return m_bytesSent;
 	}
 
@@ -168,8 +154,8 @@ public class Node extends Thread{
 	 * @param b number of bytes to increase total bytes sent
 	 * @return increased number of bytes sent by this node
 	 */
-	public byte increaseBytesSent(byte b) {
-		m_bytesSent += b;
+	public int increaseBytesSent(byte[] b) {
+		m_bytesSent += b.length;
 		return m_bytesSent;
 	}
 
@@ -177,7 +163,7 @@ public class Node extends Thread{
 	 * 
 	 * @return number of bytes forwarded by this node
 	 */
-	public byte getBytesForwarded() {
+	public int getBytesForwarded() {
 		return m_bytesForwarded;
 	}
 
@@ -186,8 +172,8 @@ public class Node extends Thread{
 	 * @param b number of bytes to increase total bytes forwarded
 	 * @return increased number of bytes forwarded by this node
 	 */
-	public byte increaseBytesForwarded(byte b) {
-		m_bytesForwarded += b;
+	public int increaseBytesForwarded(byte[] b) {
+		m_bytesForwarded += b.length;
 		return m_bytesForwarded;
 	}
 
@@ -195,7 +181,7 @@ public class Node extends Thread{
 	 * 
 	 * @return number of bytes received by this node
 	 */
-	public byte getBytesReceived() {
+	public int getBytesReceived() {
 		return m_bytesReceived;
 	}
 
@@ -204,8 +190,8 @@ public class Node extends Thread{
 	 * @param b number of bytes to increase total bytes received
 	 * @return increased number of bytes received by this node
 	 */
-	public byte increaseBytesReceived(byte b) {
-		m_bytesReceived += b;
+	public int increaseBytesReceived(byte[] b) {
+		m_bytesReceived += b.length;
 		return m_bytesReceived;
 	}
 
@@ -213,7 +199,7 @@ public class Node extends Thread{
 	 * 
 	 * @return number of bytes dropped by this node
 	 */
-	public byte getBytesDropped() {
+	public int getBytesDropped() {
 		return m_bytesDropped;
 	}
 
@@ -222,29 +208,10 @@ public class Node extends Thread{
 	 * @param b number of bytes to increase total bytes dropped
 	 * @return increased number of bytes dropped by this node
 	 */
-	public byte increaseBytesDropped(byte b) {
-		m_bytesDropped += b;
+	public int increaseBytesDropped(byte[] b) {
+		m_bytesDropped += b.length;
 		return m_bytesDropped;
 	}
-
-
-	/**
-	 * 
-	 * @return is it on
-	 */
-	public boolean getOn() {
-		return m_on;
-	}
-
-	/**
-	 * 
-	 * @param newVal new state for node
-	 * @return new state
-	 */
-	public boolean setOn(boolean newVal) {
-		m_on = newVal;
-		return m_on;
-	}	
 
 	/**
 	 * prints the contents of a packet
@@ -299,207 +266,107 @@ public class Node extends Thread{
 		return NodeThreadQueue;
 	}
 
-	public boolean getIsSending() {
-		return m_isSending;
-	}
-
-	public boolean setIsSending(boolean b) {
-		m_isSending = b;
-		return m_isSending;
-	}
-
-	public boolean getIsForwarding() {
-		return m_isForwarding;
-	}
-
-	public boolean setIsForwarding(boolean b) {
-		m_isForwarding = b;
-		return m_isForwarding;
-	}
-
-	public boolean getIsReceiving() {
-		return m_isReceiving;
-	}
-
-	public boolean setIsReceiving(boolean b) {
-		m_isReceiving = b;
-		return m_isReceiving;
-	}
-
-	public Packet getP() {
-		return m_p;
-	}
-
-	public Packet setP(Packet p) {
-		m_p = p;
-		return m_p;
-	}
-
-	public int getActionCount() {
-		return m_actionCount;
-	}
-
-	public int incrementActionCount() {
-		return m_actionCount++;
-	}
-
-	public int decrementActionCount() {
-		return m_actionCount--;
-	}
-	
 	public Vector<String> getReceivedMessages() {
 		return m_receivedMessages;
 	}
-	
+
 	public Vector<String> addToReceivedMessages(String s) {
 		getReceivedMessages().add(s);
+		if(s == "responding!") {
+			incrementResponsesReceived();
+		}
 		return m_receivedMessages;
 	}
 
-	public void threadSend(Node d, Packet p) {
-		setIsSending(true);
-		System.out.println("node " + getUid() +  " at time " + LocalTime.now() + " is sending.");
-		/*try {
-			//System.out.println("thread send 1");
-			Thread.sleep(10);
-			//System.out.println("thread send 2");
-			//sendPacket(NodeList, d, p);
-			//System.out.println("thread send 3");
-		} catch (InterruptedException e) {
-			System.out.println("caught");
-		}*/
-
-		System.out.println("Thread: " + getId() + " on node " + getUid() +  " at time " + LocalTime.now() + " is sent.");
-		setIsSending(false);
+	public int getResponsesRequested() {
+		return m_responsesRequested;
 	}
 
-	public void threadForward(Node d, Packet p) {
-		System.out.println("Thread: " + getId() + " on node " + getUid() +  " at time " + LocalTime.now() + " is forwarding.");
-		try {
-			Thread.sleep(75);
-			//forwardPacket(NodeList, d, p);
-		} catch (InterruptedException e) {
-		}
-		System.out.println("Thread: " + getId() + " on node " + getUid() +  " at time " + LocalTime.now() + " is forwarded.");
+	public int incrementResponsesRequested() {
+		return m_responsesRequested++;
 	}
 
-	public void threadReceive(Node d, Packet p) {
-		System.out.println("Thread: " + getId() + " on node " + getUid() +  " at time " + LocalTime.now() + " is receiving.");
-		try {
-			Thread.sleep(150);
-			//receivePacket(d, p);
-		} catch (InterruptedException e) {
-		}
-		System.out.println("Thread: " + getId() + " on node " + getUid() +  " at time " + LocalTime.now() + " is received.");
+	public int getResponsesReceived() {
+		return m_responsesReceived;
 	}
 
-	public void threadDrop() {
-		System.out.println("Thread: " + getId() + " on node " + getUid() +  " at time " + LocalTime.now() + " is dropping.");
-		try {
-			Thread.sleep(10);
-		} catch (InterruptedException e) {
-		}
-		System.out.println("Thread: " + getId() + " on node " + getUid() +  " at time " + LocalTime.now() + " is dropped.");
+	public int incrementResponsesReceived() {
+		return m_responsesReceived++;
 	}
 
-	/*public void threadAction() {
-		System.out.println("Thread action i: " + NodeThreadQueue.peek().getI() + " on node " + getUid());
-		if(NodeThreadQueue.peek().getI() == 0) {
-			System.out.println("thread action send on node" + getUid());
-			threadSend(NodeThreadQueue.peek().getD(), NodeThreadQueue.peek().getP());
-		} else if(NodeThreadQueue.peek().getI() == 1) {
-			System.out.println("thread action forward on node" + getUid());
-			threadForward(NodeThreadQueue.peek().getD(), NodeThreadQueue.peek().getP());
-		} else if(NodeThreadQueue.peek().getI() == 2) {
-			System.out.println("thread action recieve on node" + getUid());
-			threadReceive(NodeThreadQueue.peek().getD(), NodeThreadQueue.peek().getP());
-		} else if(NodeThreadQueue.peek().getI() == 3){
-			threadDrop();
-		}
-		getQueue().remove();
-		/*System.out.println(NodeThreadQueue.isEmpty() + " is it empty?1");
-		NodeThreadQueue.remove();
-		System.out.println(NodeThreadQueue.isEmpty() + " is it empty?2");
-	}*/
+	public void send(Packet p) {
+		incrementSent();
+		increaseBytesSent(p.getMsg().getBytes());
+	}
 
-	public void run () {
+	public void forward(Packet p) {
+		incrementForwarded();
+		increaseBytesForwarded(p.getMsg().getBytes());
+	}
 
-		System.out.println(LocalTime.now() + " | starting thread " + " on node " + getUid());
-		//System.out.println("starting thread " + getId() + " on node " + getUid());
+	public void receive(Packet p) {
+		incrementReceived();
+		increaseBytesReceived(p.getMsg().getBytes());
+		this.addToReceivedMessages(p.getMsg());
+	}
+
+	public void drop(Packet p) {
+		incrementDropped();
+		increaseBytesDropped(p.getMsg().getBytes());
+	}
+
+	public void run() throws IllegalThreadStateException {
+		System.out.println(LocalTime.now() + " | starting thread on node " + getUid());
 		while(true) {
-			while(getActionCount() != 0) {
-				System.out.println(LocalTime.now() + " | Node " + getUid() + " has action available");
+			if(getQueue().peek() != null) {
 				try {
-					action(m_p);
-				} catch (InterruptedException e) {
-					//caught
+					lock.lock();
+				} catch (Exception e) {
+					//caught!!
 				}
-
+				MethodInfo m = getQueue().peek();
+				try {
+					getQueue().poll(); //the locks should keep multiple threads from the thread pool from beginning the same method
+				} finally {
+					try {
+						lock.unlock();
+					} catch (Exception e) {
+						//caught!!
+					}
+				}
+				PacketThreadPool.execute(m);
 			}
 
 			try {
-				Thread.sleep(50);
+				Thread.sleep(5); //try again in 50ms so as to not overwork my computer
 			} catch (InterruptedException e) {
 				// caught!
 			}
 
 		}
-		/*{
-			while(!m_on) {
-				try {
-					this.wait(100);
-				} catch (InterruptedException e) {
-				}
-			}
-			while(m_on) {
-				if(!NodeThreadQueue.isEmpty()) {
-					ThreadAction();
-				} else {
-					m_on = false;
-				}
-			}
-
-		}*/
 	}
 
-	public void action(Packet p) throws InterruptedException {
-		//lock.lock();
-		System.out.println(LocalTime.now() + " | Node " + getUid() + " attempting action!");
-		try {
-			while(getActionCount() == 0) {
-				//inUse.await();
-			}
-		} finally {
-			//p.signalCondition();
-			System.out.println(LocalTime.now() + " | Node " + getUid() + " is performing action!");
-			p.setB(false);
-			threadAction();
-			//lock.unlock();
+	/**
+	 * determines the distance between two nodes, n1 and n2.
+	 * 
+	 * @param n1 node 1
+	 * @param n2 node 2
+	 * @return
+	 */
+	public double determineDistance(Node n1, Node n2) {
+		double a = Math.abs(n1.getX() - n2.getX()); //a = x1-x2
+		double b = Math.abs(n1.getY() - n2.getY()); //b = y1-y2
+		return Math.sqrt(Math.pow(a, 2) + Math.pow(b, 2)); //a^2 + b^2 = c^2 -> c = sqrt(a^2 + b^2);
+	}
+
+	public boolean isInRange(Node n) {
+		double a = Math.abs(getX() - n.getX()); //a = x1-x2
+		double b = Math.abs(getY() - n.getY()); //b = y1-y2
+
+		if(getTxr() < Math.sqrt(Math.pow(a, 2) + Math.pow(b, 2))) {
+			return false;
 		}
-		decrementActionCount();
-		System.out.println(LocalTime.now() + " | Node " + getUid() + " done with action!");
-	}
-
-	public void threadAction() {
-		try {
-			System.out.println(LocalTime.now() + " | Node " + getUid() + " attempting thread stuff!");
-			Thread.sleep(100 * m_p.getSize());
-			System.out.println(LocalTime.now() + " | Node " + getUid() + " done with thread stuff!");
-		} catch (InterruptedException e) {
-			// caught!
-		}
-	}
-
-	public void signalCondition() {
-		inUse.signal();
-	}
-
-	public void promptPacket(Packet p) throws InterruptedException {
-		p.signalCondition();
-	}
-
-	public Packet getPacket(Packet p) {
-		return p;
+		return true;
 	}
 
 }
