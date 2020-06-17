@@ -3,14 +3,18 @@ package network;
 import java.time.LocalTime;
 import java.util.Vector;
 
-public class Packet{
+/**
+ * @author Greg
+ *
+ */
+public class Packet {
 	public String m_msg; //content of packet
 	public Vector<Node> m_path; //path taken by packet
 	public Node m_currentNode;
 	public boolean m_requireResponse;
 
 	/**
-	 * packet with no message
+	 * packet with no preset message. Used by nodes.
 	 * 
 	 * @param path route to be taken by this packet
 	 * @param requireResponse boolean value of whether this packet requires a response or not
@@ -23,7 +27,7 @@ public class Packet{
 	}
 
 	/**
-	 * packet with a message
+	 * packet with a preset message. Used by nodes.
 	 * 
 	 * @param path route to be taken by this packet
 	 * @param msg message contained by this packet

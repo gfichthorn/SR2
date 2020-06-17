@@ -2,8 +2,12 @@ package network;
 
 import java.time.LocalTime;
 
-public class MethodInfo extends Thread{
-	public int m_i; //my int representation of the method
+/**
+ * @author Greg
+ *
+ */
+public class MethodInfo extends Thread {
+	public int m_i; //my integer representation of the method
 	public Node m_n; //my node
 	public Packet m_p; // my packet
 
@@ -20,18 +24,33 @@ public class MethodInfo extends Thread{
 		m_p = p;
 	}
 
+	/**
+	 * returns integer representation of method
+	 * @return i
+	 */
 	public int getI() {
 		return m_i;
 	}
 
+	/**
+	 * returns current node
+	 * @return n
+	 */
 	public Node getN() {
 		return m_n;
 	}
 
+	/**
+	 * returns packet
+	 * @return p
+	 */
 	public Packet getP() {
 		return m_p;
 	}
 
+	/**
+	 * runnable. Does action based on i.
+	 */
 	public void run() {
 		if(getI() == 0) {
 			send();
@@ -40,13 +59,17 @@ public class MethodInfo extends Thread{
 		} else if (getI() == 2) {
 			receive();
 		} else if (getI() == 3) {
-			//drop
+			threadDrop();
 		}
 	}
 
+	/**
+	 * everything the thread for MethodInfo class does when sent
+	 * @return 0
+	 */
 	public int threadSend() {
 		try {
-			Thread.sleep(100);
+			Thread.sleep(100); // TODO accurate sleep time for sending
 		} catch (InterruptedException e) {
 			//caught!
 		}
@@ -54,7 +77,11 @@ public class MethodInfo extends Thread{
 		return 0;
 	}
 
-	public void send() {
+	/**
+	 * prompts the actions of MethodInfo, Node, Packet when sent
+	 * @return 0
+	 */
+	public int send() {
 		Node nextHop = getP().getNextNode();
 		if(nextHop == getN()) { //if next hop does not change, does not send.
 
@@ -75,11 +102,16 @@ public class MethodInfo extends Thread{
 				getN().incrementResponsesRequested();
 			}
 		}
+		return 0;
 	}
 
+	/**
+	 * everything the thread for MethodInfo class does when forwarded
+	 * @return 1
+	 */
 	public int threadForward() {
 		try {
-			Thread.sleep(100);
+			Thread.sleep(100); // TODO accurate sleep time for forwarding
 		} catch (InterruptedException e) {
 			//caught!
 		}
@@ -88,14 +120,11 @@ public class MethodInfo extends Thread{
 	}
 
 	/**
-	 * forwards the packet to the next hop
+	 * Prompts the actions of MethodInfo, Node, Packet when forwarded
 	 * 
-	 * @param n current node
-	 * @param d destination node
-	 * @param p packet
-	 * @return
+	 * @return 1
 	 */
-	public void forward() {
+	public int forward() {
 		Node nextHop = getP().getNextNode(); //get next hop
 		if(nextHop == getN() || !getN().isInRange(nextHop)) { //if next hop does not change, fails.
 			threadDrop();
@@ -113,11 +142,16 @@ public class MethodInfo extends Thread{
 			getP().forward();
 			nextHop.getQueue().add(new MethodInfo(1, nextHop, getP()));
 		}
+		return 1;
 	}
 
+	/**
+	 * everything the thread for MethodInfo class does when received
+	 * @return 2
+	 */
 	public int threadReceive() {
 		try {
-			Thread.sleep(100);
+			Thread.sleep(100); // TODO accurate sleep time for receiving
 		} catch (InterruptedException e) {
 			//caught!
 		}
@@ -125,20 +159,29 @@ public class MethodInfo extends Thread{
 		return 2;
 	}
 
-	public void receive() {
+	/**
+	 * Prompts the actions of MethodInfo, Node, Packet when received
+	 * @return 2
+	 */
+	public int receive() {
 		threadReceive();
 		getN().receive(getP());
 		getP().receive();
 		if(getP().getRequireResponse()) {
-			Packet p = new Packet(getP().flipPath(), "responding!", false);
+			Packet p = new Packet(getP().flipPath(), "responding!", false); // TODO make responding message accurate
 			MethodInfo m = new MethodInfo(0, getN(), p);
 			getN().getQueue().add(m);
 		}
+		return 2;
 	}
 
+	/**
+	 * everything the thread for MethodInfo class does when dropped
+	 * @return 0
+	 */
 	public int threadDrop() {
 		try {
-			Thread.sleep(100);
+			Thread.sleep(100); // TODO accurate sleep time for dropping
 		} catch (InterruptedException e) {
 			//caught!
 		}
