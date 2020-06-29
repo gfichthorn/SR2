@@ -29,7 +29,8 @@ public class Node extends Thread {
 	public Queue<MethodInfo> NodeThreadQueue = new LinkedList<MethodInfo>(); // queue of actions to be done by node
 	public Vector<String> m_receivedMessages = new Vector<String>(); // list of received strings
 	ExecutorService PacketThreadPool = Executors.newFixedThreadPool(5); // thread pool to work on NodeThreadQueue
-	public Lock lock;
+	public Lock lock; // ensure that multiple threads from a pool dont enter critical section simultaneously
+	public boolean m_regularNode; // for purposes of collecting data after a simulation ends
 
 	/**
 	 * runnable node with a unique identifier, transmission range, and positional x and y coordinates. Uses packets, contained within a network of nodes.
@@ -56,6 +57,7 @@ public class Node extends Thread {
 		m_y = y;
 		m_responsesRequested = 0;
 		m_responsesReceived = 0;
+		m_regularNode = true;
 	}
 
 	/**
@@ -346,12 +348,15 @@ public class Node extends Thread {
 		incrementDropped();
 		increaseBytesDropped(p.getMsg().getBytes());
 	}
+	
+	public boolean getIsRegular() {
+		return m_regularNode;
+	}
 
 	/**
 	 * runnable for Node. Loops endlessly. When NodeThreadQueue is not empty, performs action using thread pool.
 	 */
 	public void run() throws IllegalThreadStateException {
-		System.out.println(LocalTime.now() + " | starting thread on node " + getUid());
 		while(true) {
 			if(getQueue().peek() != null) {
 				try {
@@ -373,7 +378,7 @@ public class Node extends Thread {
 			}
 
 			try {
-				Thread.sleep(5); //try again in 50ms so as to not overwork my computer
+				Thread.sleep(5); //try again in 5ms so as to not overwork my computer
 			} catch (InterruptedException e) {
 				// caught!
 			}

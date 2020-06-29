@@ -9,14 +9,23 @@ import java.util.concurrent.ThreadLocalRandom;
 public class Network {
 	public int NodeListSize;
 	public Vector<Node> NodeList;
+	public long m_duration;
 
 	/**
 	 * Network containing nodes and performing actions that requires all nodes
+	 * @param duration length of experiment, ms
 	 */
-	public Network() {
+	public Network(long duration) {
 		NodeList = new Vector<Node>();
 		NodeListSize = 0;
-		setupTestNodes();
+		m_duration = duration;
+		//this.setupHealthyTestNodes();
+		//this.setupMirrorTestNodes();
+		//this.setupDelayTestNodes();
+		//this.setupTargetNode();
+		this.setupBroadcastNode();
+		//this.setupForgetfulNode();
+		
 	}
 
 	/**
@@ -49,6 +58,7 @@ public class Network {
 	 */
 	public Node addNode(Node n) {
 		NodeList.add(n);
+		n.start();
 		return n;
 	}
 
@@ -124,7 +134,9 @@ public class Network {
 	public int getOverallBytesSent() {
 		int c = 0;
 		for(int i = 0; i < NodeList.size(); i++) {
-			c += NodeList.get(i).getBytesSent();
+			if(NodeList.get(i).getIsRegular()) {
+				c += NodeList.get(i).getBytesSent();
+			}
 		}
 		return c;
 	}
@@ -136,7 +148,9 @@ public class Network {
 	public int getOverallBytesForwarded() {
 		int c = 0;
 		for(int i = 0; i < NodeList.size(); i++) {
-			c += NodeList.get(i).getBytesForwarded();
+			if(NodeList.get(i).getIsRegular()) {
+				c += NodeList.get(i).getBytesForwarded();
+			}
 		}
 		return c;
 	}
@@ -148,7 +162,9 @@ public class Network {
 	public int getOverallBytesReceived() {
 		int c = 0;
 		for(int i = 0; i < NodeList.size(); i++) {
-			c += NodeList.get(i).getBytesReceived();
+			if(NodeList.get(i).getIsRegular()) {
+				c += NodeList.get(i).getBytesReceived();
+			}
 		}
 		return c;
 	}
@@ -160,7 +176,9 @@ public class Network {
 	public int getOverallBytesDropped() {
 		int c = 0;
 		for(int i = 0; i < NodeList.size(); i++) {
-			c += NodeList.get(i).getBytesDropped();
+			if(NodeList.get(i).getIsRegular()) {
+				c += NodeList.get(i).getBytesDropped();
+			}
 		}
 		return c;
 	}
@@ -172,7 +190,9 @@ public class Network {
 	public int getOverallPacketsRequestingResponse() {
 		int c = 0;
 		for(int i = 0; i < NodeList.size(); i++) {
-			c += NodeList.get(i).getResponsesRequested();
+			if(NodeList.get(i).getIsRegular()) {
+				c += NodeList.get(i).getResponsesRequested();
+			}
 		}
 		return c;
 	}
@@ -184,7 +204,9 @@ public class Network {
 	public int getOverallPacketsReceivingResponse() {
 		int c = 0;
 		for(int i = 0; i < NodeList.size(); i++) {
-			c += NodeList.get(i).getResponsesReceived();
+			if(NodeList.get(i).getIsRegular()) {
+				c += NodeList.get(i).getResponsesReceived();
+			}
 		}
 		return c;
 	}
@@ -195,18 +217,37 @@ public class Network {
 	 * getOverallBytesDropped(), getOverallPacketsRequestingResponse(), getOverallPacketsReceivingResponse()
 	 */
 	public void printAll() {
+		System.out.println();
+		System.out.println();
+		System.out.println();
+		System.out.println();
 		System.out.println("----------------------------------------------");
+		int bSent = getOverallBytesSent();
 		System.out.println("Number of packets sent by all nodes: " + getOverallSent());
-		System.out.println("Number of bytes sent by all nodes: " + getOverallBytesSent());
+		System.out.println("Number of bytes sent by all nodes: " + bSent);
+		int bForwarded = getOverallBytesForwarded();
 		System.out.println("Number of packets forwarded by all nodes: " + getOverallForwarded());
-		System.out.println("Number of bytes forwarded by all nodes: " + getOverallBytesForwarded());
+		System.out.println("Number of bytes forwarded by all nodes: " + bForwarded);
+		int bReceived = getOverallBytesReceived();
 		System.out.println("Number of packets received by all nodes: " + getOverallReceived());
-		System.out.println("Number of bytes received by all nodes: " + getOverallBytesReceived());
+		System.out.println("Number of bytes received by all nodes: " + bReceived);
+		int bDropped = getOverallBytesDropped();
 		System.out.println("Number of packets dropped by all nodes: " + getOverallDropped());
-		System.out.println("Number of bytes dropped by all nodes: " + getOverallBytesDropped());
+		System.out.println("Number of bytes dropped by all nodes: " + bDropped);
 		System.out.println("Number of packets requesting a response sent by all nodes: " + getOverallPacketsRequestingResponse());
 		System.out.println("Number of packets received by all nodes in response to a request: " + getOverallPacketsReceivingResponse());
+		double duration =  new Double(m_duration);
+		System.out.println("Duration of experiment: " + duration + " ms");
+		int bAll = bSent + bForwarded + bReceived + bDropped;
+		double bDouble = new Double(bAll);
+		System.out.println("Number of bytes managed by each node: " + bDouble);
+		double bps = new Double(1000 * bDouble / duration);
+		System.out.println("Average number of bytes managed by each node per second: " + bps);
 		System.out.println("----------------------------------------------");
+		System.out.println();
+		System.out.println();
+		System.out.println();
+		System.out.println();
 	}
 
 	/**
@@ -285,7 +326,7 @@ public class Network {
 		}
 
 		if(i != d) { // could not reach destination
-			v.add(d);
+			//v.add(d);
 		}
 		return v;
 	}
@@ -293,29 +334,28 @@ public class Network {
 	/**
 	 * sets up a set of test nodes
 	 */
-	public void setupTestNodes() {
-		addNode(5, 0, 0); // 0th node
-		addNode(5, 3, 4); // 1st node
-		addNode(5, 4, 3); // 2nd node
-		addNode(5, -3, -4); // 3rd node
-		addNode(5, -4, -3); // 4th node
-		addNode(5, 7, 7); // 5th node
-		addNode(5, -7, -7); // 6th node
-		addNode(5, 2, 2); // 7th node
-		addNode(5, -2, -2); // 8th node
-		addNode(5, 5, 0); // 9th node
-		addNode(5, 0, 5); // 10th node
-		addNode(5, -5, 0); // 11th node
-		addNode(5, 0, -5); // 12th node
-		addNode(5, -3, 4); // 13th node
-		addNode(5, -4, 3); // 14th node
-		addNode(5, 3, -4); // 15th node
-		addNode(5, 4, -3); // 16th node
-		addNode(5, -7, 7); // 17th node
-		addNode(5, 7, -7); // 18th node
-		addNode(5, -2, 2); // 19th node
-		addNode(5, 2, -2); // 20th node
-		addNode(5, 100, 100); // 21st node. Outside the range of every other node
+	public void setupHealthyTestNodes() {
+		addNode(5, 3, 4); // 0th node
+		addNode(5, 4, 3); // 1st node
+		addNode(5, -3, -4); // 2nd node
+		addNode(5, -4, -3); // 3rd node
+		addNode(5, 7, 7); // 4th node
+		addNode(5, -7, -7); // 5th node
+		addNode(5, 2, 2); // 6th node
+		addNode(5, -2, -2); // 7th node
+		addNode(5, 5, 0); // 8th node
+		addNode(5, 0, 5); // 9th node
+		addNode(5, -5, 0); // 10th node
+		addNode(5, 0, -5); // 11th node
+		addNode(5, -3, 4); // 12th node
+		addNode(5, -4, 3); // 13th node
+		addNode(5, 3, -4); // 14th node
+		addNode(5, 4, -3); // 15th node
+		addNode(5, -7, 7); // 16th node
+		addNode(5, 7, -7); // 17th node
+		addNode(5, -2, 2); // 18th node
+		addNode(5, 2, -2); //  19th node
+		addNode(5, 0, 0); // 20th node
 	}
 
 	/**
@@ -334,15 +374,15 @@ public class Network {
 	/**
 	 * test simulation using the test set of nodes
 	 */
-	public void test() {
+	public void testNetwork() {
 		String[] msg = {"hello", "!@#$", "greetings!", "a", "Good morning!"}; // TODO get all messages that I want
 		int n, d, m, r;
-		long end = System.currentTimeMillis() + 1500;
+		long end = System.currentTimeMillis() + m_duration;
 		while(System.currentTimeMillis() < end) {
-			n = ThreadLocalRandom.current().nextInt(0, 22);
-			d = ThreadLocalRandom.current().nextInt(0, 22);
+			n = ThreadLocalRandom.current().nextInt(0, 21);
+			d = ThreadLocalRandom.current().nextInt(0, 21);
 			m = ThreadLocalRandom.current().nextInt(0, 5);
-			r = ThreadLocalRandom.current().nextInt(0, 2); // TODO accurate chance of packet requesting a response
+			r = ThreadLocalRandom.current().nextInt(0, 2); // TODO accurate chance of packet requesting a response = always
 			while(n == d) {
 				d = ThreadLocalRandom.current().nextInt(0, 21);
 			}
@@ -353,14 +393,17 @@ public class Network {
 			}
 
 			try {
-				Thread.sleep(5);
+				Thread.sleep(5); //TODO length in between sending messages
 			} catch (InterruptedException e) {
 				// caught!
 				e.printStackTrace();
 			}
-		}
+		}/* didnt work
+		for(int i = 0; i < NodeListSize; i++) {
+			this.getNode(i).interrupt();
+		}*/
 		try {
-			Thread.sleep(5000);
+			Thread.sleep(m_duration);
 		} catch (InterruptedException e) {
 			// caught!
 			e.printStackTrace();
@@ -370,6 +413,136 @@ public class Network {
 		System.out.println("Node 0 received messages: " + getNode(0).getReceivedMessages());
 	}
 	
-	// TODO baseline test for nodes? Number of nodes? Placement? Length of simulation? How to process/analyze the data?
-	// TODO visual representation of data?
+	public void setupMirrorTestNodes() {
+		addNode(5, 3, 4); // 0th node
+		addNode(5, 4, 3); // 1st node
+		addNode(5, -3, -4); // 2nd node
+		addNode(5, -4, -3); // 3rd node
+		addNode(5, 7, 7); // 4th node
+		addNode(5, -7, -7); // 5th node
+		addNode(5, 2, 2); // 6th node
+		addNode(5, -2, -2); // 7th node
+		addNode(5, 5, 0); // 8th node
+		addNode(5, 0, 5); // 9th node
+		addNode(5, -5, 0); // 10th node
+		addNode(5, 0, -5); // 11th node
+		addNode(5, -3, 4); // 12th node
+		addNode(5, -4, 3); // 13th node
+		addNode(5, 3, -4); // 14th node
+		addNode(5, 4, -3); // 15th node
+		addNode(5, -7, 7); // 16th node
+		addNode(5, 7, -7); // 17th node
+		addNode(5, -2, 2); // 18th node
+		addNode(5, 2, -2); // 19th node
+		MirrorNode mN = new MirrorNode(NodeListSize++, 6, 0, 0);
+		this.addNode(mN); // 20th node
+	}
+	
+	public void setupDelayTestNodes() {
+		addNode(5, 3, 4); // 0th node
+		addNode(5, 4, 3); // 1st node
+		addNode(5, -3, -4); // 2nd node
+		addNode(5, -4, -3); // 3rd node
+		addNode(5, 7, 7); // 4th node
+		addNode(5, -7, -7); // 5th node
+		addNode(5, 2, 2); // 6th node
+		addNode(5, -2, -2); // 7th node
+		addNode(5, 5, 0); // 8th node
+		addNode(5, 0, 5); // 9th node
+		addNode(5, -5, 0); // 10th node
+		addNode(5, 0, -5); // 11th node
+		addNode(5, -3, 4); // 12th node
+		addNode(5, -4, 3); // 13th node
+		addNode(5, 3, -4); // 14th node
+		addNode(5, 4, -3); // 15th node
+		addNode(5, -7, 7); // 16th node
+		addNode(5, 7, -7); // 17th node
+		addNode(5, -2, 2); // 18th node
+		addNode(5, 2, -2); //  19th node
+		DelayNode dN = new DelayNode(NodeListSize++, 6, 0, 0);
+		this.addNode(dN); // 20th node
+	}
+	
+	public void setupTargetNode() {
+		addNode(5, 3, 4); // 0th node
+		addNode(5, 4, 3); // 1st node
+		addNode(5, -3, -4); // 2nd node
+		addNode(5, -4, -3); // 3rd node
+		addNode(5, 7, 7); // 4th node
+		addNode(5, -7, -7); // 5th node
+		addNode(5, 2, 2); // 6th node
+		addNode(5, -2, -2); // 7th node
+		addNode(5, 5, 0); // 8th node
+		addNode(5, 0, 5); // 9th node
+		addNode(5, -5, 0); // 10th node
+		addNode(5, 0, -5); // 11th node
+		addNode(5, -3, 4); // 12th node
+		addNode(5, -4, 3); // 13th node
+		addNode(5, 3, -4); // 14th node
+		addNode(5, 4, -3); // 15th node
+		addNode(5, -7, 7); // 16th node
+		addNode(5, 7, -7); // 17th node
+		addNode(5, -2, 2); // 18th node
+		addNode(5, 2, -2); //  19th node
+		Node temp = new Node(NodeListSize++, 5, 0, 0);
+		Vector<Node> target = this.calculatePath(temp, this.getNode(17));
+		FloodTargetNode ftn = new FloodTargetNode(NodeListSize, 5, 0, 0, target);
+		this.addNode(ftn); // 20th node
+	}
+	
+	public void setupBroadcastNode() {
+		addNode(5, 3, 4); // 0th node
+		addNode(5, 4, 3); // 1st node
+		addNode(5, -3, -4); // 2nd node
+		addNode(5, -4, -3); // 3rd node
+		addNode(5, 7, 7); // 4th node
+		addNode(5, -7, -7); // 5th node
+		addNode(5, 2, 2); // 6th node
+		addNode(5, -2, -2); // 7th node
+		addNode(5, 5, 0); // 8th node
+		addNode(5, 0, 5); // 9th node
+		addNode(5, -5, 0); // 10th node
+		addNode(5, 0, -5); // 11th node
+		addNode(5, -3, 4); // 12th node
+		addNode(5, -4, 3); // 13th node
+		addNode(5, 3, -4); // 14th node
+		addNode(5, 4, -3); // 15th node
+		addNode(5, -7, 7); // 16th node
+		addNode(5, 7, -7); // 17th node
+		addNode(5, -2, 2); // 18th node
+		addNode(5, 2, -2); //  19th node
+		Node temp = new Node(NodeListSize++, 5, 8, 8);
+		Vector<Vector<Node>> broadcast = new Vector<Vector<Node>>();
+		for(int i = 0; i < NodeListSize - 1; i++) {
+			broadcast.add(this.calculatePath(temp, getNode(i)));
+		}
+		FloodNetworkNode fnn = new FloodNetworkNode(NodeListSize, 5, 8, 8, broadcast);
+		this.addNode(fnn); // 20th node
+	}
+	
+	public void setupForgetfulNode() {
+		addNode(5, 3, 4); // 0th node
+		addNode(5, 4, 3); // 1st node
+		addNode(5, -3, -4); // 2nd node
+		addNode(5, -4, -3); // 3rd node
+		addNode(5, 7, 7); // 4th node
+		addNode(5, -7, -7); // 5th node
+		addNode(5, 2, 2); // 6th node
+		addNode(5, -2, -2); // 7th node
+		addNode(5, 5, 0); // 8th node
+		addNode(5, 0, 5); // 9th node
+		addNode(5, -5, 0); // 10th node
+		addNode(5, 0, -5); // 11th node
+		addNode(5, -3, 4); // 12th node
+		addNode(5, -4, 3); // 13th node
+		addNode(5, 3, -4); // 14th node
+		addNode(5, 4, -3); // 15th node
+		addNode(5, -7, 7); // 16th node
+		addNode(5, 7, -7); // 17th node
+		addNode(5, -2, 2); // 18th node
+		addNode(5, 2, -2); //  19th node
+		ForgetfulNode f = new ForgetfulNode(NodeListSize++, 5, 0, 0);
+		this.addNode(f); // 20th node
+	}
+	
 }

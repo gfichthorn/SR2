@@ -73,7 +73,7 @@ public class MethodInfo extends Thread {
 		} catch (InterruptedException e) {
 			//caught!
 		}
-		System.out.println(LocalTime.now() + " | node " + getN().getUid() +  " at time " + LocalTime.now() + " has sent a packet.");
+		//System.out.println(LocalTime.now() + " | node " + getN().getUid() +  " at time " + LocalTime.now() + " has sent a packet.");
 		return 0;
 	}
 

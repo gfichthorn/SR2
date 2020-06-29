@@ -110,6 +110,16 @@ public class Packet {
 	public boolean getRequireResponse() {
 		return m_requireResponse;
 	}
+	
+	/**
+	 * updates and returns new value for boolean value require response
+	 * @param b new boolean value for require response
+	 * @return 
+	 */
+	public boolean setRequireResponse(boolean b) {
+		m_requireResponse = b;
+		return m_requireResponse;
+	}
 
 	/**
 	 * returns the path of the packet
