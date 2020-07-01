@@ -19,13 +19,12 @@ public class Network {
 		NodeList = new Vector<Node>();
 		NodeListSize = 0;
 		m_duration = duration;
-		//this.setupHealthyTestNodes();
-		//this.setupMirrorTestNodes();
-		//this.setupDelayTestNodes();
-		//this.setupTargetNode();
-		this.setupBroadcastNode();
-		//this.setupForgetfulNode();
-		
+		this.setupHealthyTestNodes();
+		//this.setupDelayTestNodes(); // int is 1
+		//this.setupMirrorTestNodes(); // int is 2
+		//this.setupTargetNode(); // int is 3
+		//this.setupBroadcastNode(); // int is 3
+		//this.setupForgetfulNode(); // int is 4
 	}
 
 	/**
@@ -217,37 +216,52 @@ public class Network {
 	 * getOverallBytesDropped(), getOverallPacketsRequestingResponse(), getOverallPacketsReceivingResponse()
 	 */
 	public void printAll() {
-		System.out.println();
-		System.out.println();
-		System.out.println();
-		System.out.println();
 		System.out.println("----------------------------------------------");
 		int bSent = getOverallBytesSent();
-		System.out.println("Number of packets sent by all nodes: " + getOverallSent());
-		System.out.println("Number of bytes sent by all nodes: " + bSent);
+		System.out.println("Number of packets sent by benign nodes: " + getOverallSent());
+		System.out.println("Number of bytes sent by benign nodes: " + bSent);
 		int bForwarded = getOverallBytesForwarded();
-		System.out.println("Number of packets forwarded by all nodes: " + getOverallForwarded());
-		System.out.println("Number of bytes forwarded by all nodes: " + bForwarded);
+		System.out.println("Number of packets forwarded by benign nodes: " + getOverallForwarded());
+		System.out.println("Number of bytes forwarded by benign nodes: " + bForwarded);
 		int bReceived = getOverallBytesReceived();
-		System.out.println("Number of packets received by all nodes: " + getOverallReceived());
-		System.out.println("Number of bytes received by all nodes: " + bReceived);
+		System.out.println("Number of packets received by benign nodes: " + getOverallReceived());
+		System.out.println("Number of bytes received by benign nodes: " + bReceived);
 		int bDropped = getOverallBytesDropped();
-		System.out.println("Number of packets dropped by all nodes: " + getOverallDropped());
-		System.out.println("Number of bytes dropped by all nodes: " + bDropped);
-		System.out.println("Number of packets requesting a response sent by all nodes: " + getOverallPacketsRequestingResponse());
-		System.out.println("Number of packets received by all nodes in response to a request: " + getOverallPacketsReceivingResponse());
+		System.out.println("Number of packets dropped by benign nodes: " + getOverallDropped());
+		System.out.println("Number of bytes dropped by benign nodes: " + bDropped);
+		System.out.println("Number of packets requesting a response sent by benign nodes: " + getOverallPacketsRequestingResponse());
+		System.out.println("Number of packets received by benign nodes in response to a request: " + getOverallPacketsReceivingResponse());
 		double duration =  new Double(m_duration);
 		System.out.println("Duration of experiment: " + duration + " ms");
 		int bAll = bSent + bForwarded + bReceived + bDropped;
 		double bDouble = new Double(bAll);
 		System.out.println("Number of bytes managed by each node: " + bDouble);
 		double bps = new Double(1000 * bDouble / duration);
-		System.out.println("Average number of bytes managed by each node per second: " + bps);
+		System.out.println("Average number of bytes managed by benign nodes per second: " + bps);
+		int j = 0, k = 0, l = 0;;
+		for(int i = 0; i < NodeListSize - 1; i++) {
+			if(NodeList.get(i).getthreshold() == 0) {
+				j++;
+			} else {
+				k++;
+				if(NodeList.lastElement().getIntType() == NodeList.get(i).getthreshold()) {
+					l++;
+				}
+			}
+		}
+		System.out.println("Number of nodes to guess there was no intruder: " + j);
+		System.out.println("Number of nodes to guess there was an intruder: " + k);
+		String s = "Type of intruder: ";
+		Node last = getNodeList().lastElement();
+		if(last.getIsRegular()) {
+			s += "no intruder";
+			System.out.println("Number of nodes to correctly guess the type of intruder: " + j);
+		} else {
+			s += getNodeList().lastElement().getType();
+			System.out.println("Number of nodes to correctly guess the type of intruder: " + l);
+		}
+		System.out.println(s);
 		System.out.println("----------------------------------------------");
-		System.out.println();
-		System.out.println();
-		System.out.println();
-		System.out.println();
 	}
 
 	/**
@@ -298,19 +312,6 @@ public class Network {
 	}
 
 	/**
-	 * node receives a packet, increments packetsReceived, returns packet
-	 * 
-	 * @param n node receiving packet
-	 * @param p packet being received
-	 * @return packet
-	 */
-	public boolean receivePacket(Node d, Packet p) {
-		d.incrementReceived();
-		d.increaseBytesReceived(p.getMsg().getBytes());
-		return true;
-	}
-
-	/**
 	 * calculates and returns a vector of nodes (the path) for the packet to go from node n to node d
 	 * @param n starting node
 	 * @param d destination node
@@ -324,7 +325,6 @@ public class Network {
 			i = determineNextHop(i, d);
 			v.add(i);
 		}
-
 		if(i != d) { // could not reach destination
 			//v.add(d);
 		}
@@ -398,19 +398,8 @@ public class Network {
 				// caught!
 				e.printStackTrace();
 			}
-		}/* didnt work
-		for(int i = 0; i < NodeListSize; i++) {
-			this.getNode(i).interrupt();
-		}*/
-		try {
-			Thread.sleep(m_duration);
-		} catch (InterruptedException e) {
-			// caught!
-			e.printStackTrace();
 		}
-
 		printAll();
-		System.out.println("Node 0 received messages: " + getNode(0).getReceivedMessages());
 	}
 	
 	public void setupMirrorTestNodes() {
@@ -418,7 +407,7 @@ public class Network {
 		addNode(5, 4, 3); // 1st node
 		addNode(5, -3, -4); // 2nd node
 		addNode(5, -4, -3); // 3rd node
-		addNode(5, 7, 7); // 4th node
+		addNode(5, 0, 0); // 4th node
 		addNode(5, -7, -7); // 5th node
 		addNode(5, 2, 2); // 6th node
 		addNode(5, -2, -2); // 7th node
@@ -434,7 +423,7 @@ public class Network {
 		addNode(5, 7, -7); // 17th node
 		addNode(5, -2, 2); // 18th node
 		addNode(5, 2, -2); // 19th node
-		MirrorNode mN = new MirrorNode(NodeListSize++, 6, 0, 0);
+		MirrorNode mN = new MirrorNode(NodeListSize++, 5, 7, 7);
 		this.addNode(mN); // 20th node
 	}
 	
@@ -443,7 +432,7 @@ public class Network {
 		addNode(5, 4, 3); // 1st node
 		addNode(5, -3, -4); // 2nd node
 		addNode(5, -4, -3); // 3rd node
-		addNode(5, 7, 7); // 4th node
+		addNode(5, 0, 0); // 4th node
 		addNode(5, -7, -7); // 5th node
 		addNode(5, 2, 2); // 6th node
 		addNode(5, -2, -2); // 7th node
@@ -459,7 +448,7 @@ public class Network {
 		addNode(5, 7, -7); // 17th node
 		addNode(5, -2, 2); // 18th node
 		addNode(5, 2, -2); //  19th node
-		DelayNode dN = new DelayNode(NodeListSize++, 6, 0, 0);
+		DelayNode dN = new DelayNode(NodeListSize++, 5, 7, 7);
 		this.addNode(dN); // 20th node
 	}
 	
@@ -468,7 +457,7 @@ public class Network {
 		addNode(5, 4, 3); // 1st node
 		addNode(5, -3, -4); // 2nd node
 		addNode(5, -4, -3); // 3rd node
-		addNode(5, 7, 7); // 4th node
+		addNode(5, 0, 0); // 4th node
 		addNode(5, -7, -7); // 5th node
 		addNode(5, 2, 2); // 6th node
 		addNode(5, -2, -2); // 7th node
@@ -484,9 +473,9 @@ public class Network {
 		addNode(5, 7, -7); // 17th node
 		addNode(5, -2, 2); // 18th node
 		addNode(5, 2, -2); //  19th node
-		Node temp = new Node(NodeListSize++, 5, 0, 0);
-		Vector<Node> target = this.calculatePath(temp, this.getNode(17));
-		FloodTargetNode ftn = new FloodTargetNode(NodeListSize, 5, 0, 0, target);
+		Node temp = new Node(NodeListSize++, 5, 7, 7);
+		Vector<Node> target = this.calculatePath(temp, this.getNode(5));
+		FloodTargetNode ftn = new FloodTargetNode(NodeListSize, 5, 7, 7, target);
 		this.addNode(ftn); // 20th node
 	}
 	
@@ -495,7 +484,7 @@ public class Network {
 		addNode(5, 4, 3); // 1st node
 		addNode(5, -3, -4); // 2nd node
 		addNode(5, -4, -3); // 3rd node
-		addNode(5, 7, 7); // 4th node
+		addNode(5, 0, 0); // 4th node
 		addNode(5, -7, -7); // 5th node
 		addNode(5, 2, 2); // 6th node
 		addNode(5, -2, -2); // 7th node
@@ -511,12 +500,12 @@ public class Network {
 		addNode(5, 7, -7); // 17th node
 		addNode(5, -2, 2); // 18th node
 		addNode(5, 2, -2); //  19th node
-		Node temp = new Node(NodeListSize++, 5, 8, 8);
+		Node temp = new Node(NodeListSize++, 5, 7, 7);
 		Vector<Vector<Node>> broadcast = new Vector<Vector<Node>>();
 		for(int i = 0; i < NodeListSize - 1; i++) {
 			broadcast.add(this.calculatePath(temp, getNode(i)));
 		}
-		FloodNetworkNode fnn = new FloodNetworkNode(NodeListSize, 5, 8, 8, broadcast);
+		FloodNetworkNode fnn = new FloodNetworkNode(NodeListSize, 5, 7, 7, broadcast);
 		this.addNode(fnn); // 20th node
 	}
 	
@@ -525,7 +514,7 @@ public class Network {
 		addNode(5, 4, 3); // 1st node
 		addNode(5, -3, -4); // 2nd node
 		addNode(5, -4, -3); // 3rd node
-		addNode(5, 7, 7); // 4th node
+		addNode(5, 0, 0); // 4th node
 		addNode(5, -7, -7); // 5th node
 		addNode(5, 2, 2); // 6th node
 		addNode(5, -2, -2); // 7th node
@@ -541,7 +530,7 @@ public class Network {
 		addNode(5, 7, -7); // 17th node
 		addNode(5, -2, 2); // 18th node
 		addNode(5, 2, -2); //  19th node
-		ForgetfulNode f = new ForgetfulNode(NodeListSize++, 5, 0, 0);
+		ForgetfulNode f = new ForgetfulNode(NodeListSize++, 5, 7, 7);
 		this.addNode(f); // 20th node
 	}
 	

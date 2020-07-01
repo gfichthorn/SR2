@@ -29,8 +29,13 @@ public class Node extends Thread {
 	public Queue<MethodInfo> NodeThreadQueue = new LinkedList<MethodInfo>(); // queue of actions to be done by node
 	public Vector<String> m_receivedMessages = new Vector<String>(); // list of received strings
 	ExecutorService PacketThreadPool = Executors.newFixedThreadPool(5); // thread pool to work on NodeThreadQueue
-	public Lock lock; // ensure that multiple threads from a pool dont enter critical section simultaneously
+	public Lock lock; // ensure that multiple threads from a pool don't enter critical section simultaneously
 	public boolean m_regularNode; // for purposes of collecting data after a simulation ends
+	public int m_threshold; // for detecting bad behavior
+	public int[] m_thresholds; // contains the results of the IDS ran at the end of each second
+	public int m_intType;
+	public String m_type;
+	public int m_responseCount;
 
 	/**
 	 * runnable node with a unique identifier, transmission range, and positional x and y coordinates. Uses packets, contained within a network of nodes.
@@ -58,6 +63,11 @@ public class Node extends Thread {
 		m_responsesRequested = 0;
 		m_responsesReceived = 0;
 		m_regularNode = true;
+		m_threshold = 0;
+		m_thresholds = new int[5]; // one per second
+		this.setIntType(0);
+		this.setType("Benign Node");
+		m_responseCount = 0;
 	}
 
 	/**
@@ -313,6 +323,82 @@ public class Node extends Thread {
 	}
 
 	/**
+	 * returns boolean value is the node is not malicious. for purpose of data colection
+	 * @return m_regularNode
+	 */
+	public boolean getIsRegular() {
+		return m_regularNode;
+	}
+
+	/**
+	 * returns the integer value of threshold
+	 * @return m_threshold
+	 */
+	public int getthreshold() {
+		return m_threshold;
+	}
+
+	/**
+	 * changes and returns m_threshold to the new integer value i
+	 * @param i new boolean value
+	 * @return m_threshold
+	 */
+	public int setthreshold(int i) {
+		m_threshold = i;
+		return m_threshold;
+	}
+	
+	/**
+	 * returns m_type
+	 * @return m_type
+	 */
+	public String getType() {
+		return m_type;
+	}
+	
+	/**
+	 * sets and returns m_type to s
+	 * @param s new m_type
+	 * @return
+	 */
+	public String setType(String s) {
+		return m_type = s;
+	}
+	
+	/**
+	 * returns m_intType
+	 * @return m_intType
+	 */
+	public int getIntType() {
+		return m_intType;
+	}
+	
+	/**
+	 * sets and returns m_intType
+	 * @param i new m_intType
+	 * @return m_intType
+	 */
+	public int setIntType(int i) {
+		return m_intType = i;
+	}
+	
+	/**
+	 * returns m_responseCount
+	 * @return m_responseCount
+	 */
+	public int getResponseCount() {
+		return m_responseCount;
+	}
+	
+	/**
+	 * increments and returns m_responseCount
+	 * @return m_responseCount
+	 */
+	public int incrementResponseCount() {
+		return m_responseCount++;
+	}
+
+	/**
 	 * all actions done by node when sending a packet
 	 * @param p packet
 	 */
@@ -338,6 +424,12 @@ public class Node extends Thread {
 		incrementReceived();
 		increaseBytesReceived(p.getMsg().getBytes());
 		this.addToReceivedMessages(p.getMsg());
+		if(System.currentTimeMillis() - p.getStart() > 100) {
+			m_threshold = 1;
+		}
+		if(p.getMsg() == "responding!") {
+			incrementResponseCount();
+		}
 	}
 
 	/**
@@ -348,16 +440,15 @@ public class Node extends Thread {
 		incrementDropped();
 		increaseBytesDropped(p.getMsg().getBytes());
 	}
-	
-	public boolean getIsRegular() {
-		return m_regularNode;
-	}
 
 	/**
 	 * runnable for Node. Loops endlessly. When NodeThreadQueue is not empty, performs action using thread pool.
 	 */
 	public void run() throws IllegalThreadStateException {
-		while(true) {
+		long start = System.currentTimeMillis();
+		long end = start + 5000;
+		long i = 4000;
+		while(System.currentTimeMillis() < end) {
 			if(getQueue().peek() != null) {
 				try {
 					lock.lock();
@@ -377,13 +468,19 @@ public class Node extends Thread {
 				PacketThreadPool.execute(m);
 			}
 
+			if(end - System.currentTimeMillis() < i) {
+				int j = (int) (i/1000);
+				intrusionDetection(j);
+				i -= 1000;
+				m_threshold = 0;
+			}
 			try {
 				Thread.sleep(5); //try again in 5ms so as to not overwork my computer
 			} catch (InterruptedException e) {
 				// caught!
 			}
-
 		}
+		guessIntrusion();
 	}
 
 	/**
@@ -413,6 +510,61 @@ public class Node extends Thread {
 			return false;
 		}
 		return true;
+	}
+
+	/**
+	 * set of cases of predefined bad behavior. Sets and returns new m_threshold value. This is the method that flags
+	 * @param i saves result into an array for use later
+	 * @return m_threshold
+	 */
+	public int intrusionDetection(int i) {
+		if (m_received + m_forwarded > 3 * m_sent) { // if packets received and/or forwarded are much larger than packets sent -> flood.
+			m_threshold = 3;
+		} else if (m_responsesReceived > m_sent * .3) { // if number of packets received that say responding are much larger expected (should be around 50% for this simulation) -> mirror
+			m_threshold = 2;
+		} else if (m_threshold == 1) { // if time sent is much different than time received -> delay (Done in receive)
+			m_threshold = 1;
+		} else if (m_responsesRequested * .5 < m_responseCount) { // if responsesRequested are much larger than responses received -> forgetful
+			m_threshold = 4;
+		} else { // no intrusion detected!
+			m_threshold = 0;
+		}
+		m_thresholds[i] = m_threshold;
+		return m_threshold;
+	}
+
+	/**
+	 * once the node has an array populated with results from intrusion detection, 'guesses' of intruder node
+	 * is in the network, if any. Returns the int representation of the type of node. Chooses whichever 
+	 * intrusion has been detected the most frequently thus far.
+	 * @return j, int representation of type of intruder node
+	 */
+	public int guessIntrusion() {
+		int zero = 0, one = 0, two = 0, three = 0, four = 0;
+
+		for(int i = 0; i < m_thresholds.length; i++) {
+			if(m_thresholds[i] == 0) {
+				zero++;
+			} else if(m_thresholds[i] == 1) {
+				one++;
+			} else if(m_thresholds[i] == 2) {
+				two++;
+			} else if(m_thresholds[i] == 3) {
+				three++;
+			} else if (m_thresholds[i] == 4){
+				four++;
+			}
+		}
+		int[] temp = {zero, one, two, three, four}; //temp contains the number of times a node identifies each potential type of intrusion
+		int j = 0; // j begins at zero
+		for(int i = temp.length - 1; i >= 0; i--) { //for each value in temp
+			if(temp[i] >= temp[j]) { //if the value in temp equals or exceeds the value at j, i replaces j
+				j = i;
+			}
+		}
+		//System.out.println("node: " + m_uid + " guesses: " + j + " because -> 0: " + zero + " | 1: " + one + " | 2: " + two + " | 3: " + three + " | 4: " + four);
+		m_threshold = j;
+		return j;
 	}
 
 }

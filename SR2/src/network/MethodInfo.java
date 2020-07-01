@@ -1,6 +1,7 @@
 package network;
 
 import java.time.LocalTime;
+import java.util.concurrent.ThreadLocalRandom;
 
 /**
  * @author Greg
@@ -22,6 +23,21 @@ public class MethodInfo extends Thread {
 		m_i = i;
 		m_n = n;
 		m_p = p;
+	}
+	
+	/**
+	 * runnable. Does action based on i.
+	 */
+	public void run() {
+		if(getI() == 0) {
+			send();
+		} else if (getI() == 1) {
+			forward();
+		} else if (getI() == 2) {
+			receive();
+		} else if (getI() == 3) {
+			threadDrop();
+		}
 	}
 
 	/**
@@ -49,27 +65,12 @@ public class MethodInfo extends Thread {
 	}
 
 	/**
-	 * runnable. Does action based on i.
-	 */
-	public void run() {
-		if(getI() == 0) {
-			send();
-		} else if (getI() == 1) {
-			forward();
-		} else if (getI() == 2) {
-			receive();
-		} else if (getI() == 3) {
-			threadDrop();
-		}
-	}
-
-	/**
 	 * everything the thread for MethodInfo class does when sent
 	 * @return 0
 	 */
 	public int threadSend() {
 		try {
-			Thread.sleep(100); // TODO accurate sleep time for sending
+			Thread.sleep(15); // TODO accurate sleep time for sending
 		} catch (InterruptedException e) {
 			//caught!
 		}
@@ -111,11 +112,11 @@ public class MethodInfo extends Thread {
 	 */
 	public int threadForward() {
 		try {
-			Thread.sleep(100); // TODO accurate sleep time for forwarding
+			Thread.sleep(25); // TODO accurate sleep time for forwarding
 		} catch (InterruptedException e) {
 			//caught!
 		}
-		System.out.println(LocalTime.now() + " | node " + getN().getUid() +  " at time " + LocalTime.now() + " has forwarded a packet.");
+		//System.out.println(LocalTime.now() + " | node " + getN().getUid() +  " at time " + LocalTime.now() + " has forwarded a packet.");
 		return 1;
 	}
 
@@ -126,7 +127,8 @@ public class MethodInfo extends Thread {
 	 */
 	public int forward() {
 		Node nextHop = getP().getNextNode(); //get next hop
-		if(nextHop == getN() || !getN().isInRange(nextHop)) { //if next hop does not change, fails.
+		int d = ThreadLocalRandom.current().nextInt(0, 100);
+		if(nextHop == getN() || !getN().isInRange(nextHop) || d < 25) { //if next hop does not change, fails.
 			threadDrop();
 			getN().drop(getP());
 			getP().drop();
@@ -151,11 +153,11 @@ public class MethodInfo extends Thread {
 	 */
 	public int threadReceive() {
 		try {
-			Thread.sleep(100); // TODO accurate sleep time for receiving
+			Thread.sleep(10); // TODO accurate sleep time for receiving
 		} catch (InterruptedException e) {
 			//caught!
 		}
-		System.out.println(LocalTime.now() + " | node " + getN().getUid() +  " at time " + LocalTime.now() + " has received a packet.");
+		//System.out.println(LocalTime.now() + " | node " + getN().getUid() +  " at time " + LocalTime.now() + " has received a packet.");
 		return 2;
 	}
 
@@ -181,11 +183,11 @@ public class MethodInfo extends Thread {
 	 */
 	public int threadDrop() {
 		try {
-			Thread.sleep(100); // TODO accurate sleep time for dropping
+			Thread.sleep(10); // TODO accurate sleep time for dropping
 		} catch (InterruptedException e) {
 			//caught!
 		}
-		System.out.println(LocalTime.now() + " | node " + getN().getUid() +  " at time " + LocalTime.now() + " has dropped a packet.");
+		//System.out.println(LocalTime.now() + " | node " + getN().getUid() +  " at time " + LocalTime.now() + " has dropped a packet.");
 		return 3;
 	}
 

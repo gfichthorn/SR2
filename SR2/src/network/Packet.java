@@ -10,21 +10,9 @@ import java.util.Vector;
 public class Packet {
 	public String m_msg; //content of packet
 	public Vector<Node> m_path; //path taken by packet
-	public Node m_currentNode;
-	public boolean m_requireResponse;
-
-	/**
-	 * packet with no preset message. Used by nodes.
-	 * 
-	 * @param path route to be taken by this packet
-	 * @param requireResponse boolean value of whether this packet requires a response or not
-	 */
-	Packet(Vector<Node> path, boolean requireResponse) {
-		m_msg = "a";
-		m_path = path;
-		m_currentNode = path.get(0);
-		m_requireResponse = requireResponse;
-	}
+	public Node m_currentNode; //which node of the path is the packet at
+	public boolean m_requireResponse; //does this packet require a response from its destination?
+	public long m_start; //time packet is created
 
 	/**
 	 * packet with a preset message. Used by nodes.
@@ -38,8 +26,23 @@ public class Packet {
 		m_path = path;
 		m_currentNode = path.get(0);
 		m_requireResponse = requireResponse;
+		m_start = System.currentTimeMillis();
 	}
 
+	/**
+	 * packet with no preset message. Used by nodes.
+	 * 
+	 * @param path route to be taken by this packet
+	 * @param requireResponse boolean value of whether this packet requires a response or not
+	 */
+	Packet(Vector<Node> path, boolean requireResponse) {
+		m_msg = "a";
+		m_path = path;
+		m_currentNode = path.get(0);
+		m_requireResponse = requireResponse;
+		m_start = System.currentTimeMillis();
+	}
+	
 	/**
 	 * 
 	 * @return content of packet
@@ -120,6 +123,14 @@ public class Packet {
 		m_requireResponse = b;
 		return m_requireResponse;
 	}
+	
+	/**
+	 * returns start time of this packet
+	 * @return m_start
+	 */
+	public long getStart() {
+		return m_start;
+	}
 
 	/**
 	 * returns the path of the packet
@@ -152,14 +163,14 @@ public class Packet {
 	 * does this when destination node receives this packet
 	 */
 	public void receive() {
-		System.out.println(printPath() + " received!");
+		//System.out.println(printPath() + " received!");
 	}
 
 	/**
 	 * does this when destination node drops this packet
 	 */
 	public void drop() {
-		System.out.println(printPath() + " dropped!");
+		//System.out.println(printPath() + " dropped!");
 	}
 
 }
